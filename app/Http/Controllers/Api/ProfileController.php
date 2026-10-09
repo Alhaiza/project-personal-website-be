@@ -31,7 +31,16 @@ class ProfileController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Profile data retrieved successfully',
-            'data' => $profile,
-        ]);
+            'data' => [
+                'name' => $profile->name,
+                'role' => $profile->role,
+                'bio' => $profile->bio,
+                'avatar' => $profile->avatar ? asset('storage/' . $profile->avatar) : null,
+
+                'skills' => [],
+                'projects' => [],
+                'experiences' => [],
+            ]
+        ], 200);
     }
 }
