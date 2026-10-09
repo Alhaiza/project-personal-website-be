@@ -1,59 +1,199 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# Technical Blueprint & Engineering Workflow (Laravel 12 & Filament v3)
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+Dokumentasi ini merangkum evolusi arsitektur dan alur pengembangan kode (flow) dari kondisi awal (*fresh installation*) hingga status terkini (*production-ready API & CMS*) berdasarkan analisis perubahan kode nyata (*diff*).
 
-## About Laravel
+---
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+## 1. Arsitektur & Hubungan Antar Modul
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+Aplikasi ini berfungsi ganda sebagai:
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+1. **Headless Content Management System (CMS):** Panel admin Filament v3 (`/alhaiza`) untuk mengelola seluruh data portofolio secara visual.
+2. **RESTful API Service:** Endpoint tunggal teragregasi (`/api/profile`) untuk menyuplai data ke frontend modern (Vue 3 / Vite).
 
-## Learning Laravel
+```text
+   [ Admin User ]
+         │
+         ▼
+[ Filament Panel: /alhaiza ]
+  ├── ProfileResource    ──> [ profiles table ]
+  ├── ProjectResource    ──> [ projects table ]
+  ├── ExperienceResource ──> [ experiences table ]
+  └── SkillResource      ──> [ skills table ]
+         │
+         └── FileUpload (avatars) ──> [ storage/app/public/avatars ]
+                                                    │
+                                         (symlink public/storage)
+                                                    │
+   [ Vue 3 Frontend ]                               ▼
+         │                             http://127.0.0.1:8000/storage/...
+         ▼ (GET /api/profile)
+[ Api\ProfileController ] ── Agregasi (Profile + Projects + Experiences + Skills)
+```
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework. You can also check out [Laravel Learn](https://laravel.com/learn), where you will be guided through building a modern Laravel application.
+---
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+## 2. End-to-End Engineering Flow
 
-## Laravel Sponsors
+Alur berikut memetakan perjalanan kode dari nol hingga selesai, menjelaskan file yang lahir di setiap fase beserta keputusan teknisnya.
 
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the [Laravel Partners program](https://partners.laravel.com).
+### Fase 1: Setup Dasar & Testing Framework
 
-### Premium Partners
+*Fokus: Mempersiapkan runtime framework dan test harness.*
 
-- **[Vehikl](https://vehikl.com)**
-- **[Tighten Co.](https://tighten.co)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel)**
-- **[DevSquad](https://devsquad.com/hire-laravel-developers)**
-- **[Redberry](https://redberry.international/laravel-development)**
-- **[Active Logic](https://activelogic.com)**
+- **Langkah Kerja:**
+  1. Inisialisasi basis Laravel dan konfigurasi `.env`.
+  2. Integrasi **Pest PHP** sebagai testing engine modern pengganti PHPUnit bawaan.
+- **Perubahan Struktur File:**
+  - Tambah konfigurasi tes: `tests/Pest.php`
+  - Refaktor unit & feature test ke syntax deklaratif Pest (`it('returns a successful response', ...)`).
 
-## Contributing
+---
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+### Fase 2: Pemasangan Headless CMS (Filament v3)
 
-## Code of Conduct
+*Fokus: Mengaktifkan panel admin kustom tanpa mencampuri route default.*
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+- **Langkah Kerja:**
+  1. Install paket Filament Panel Builder (`filament/filament`).
+  2. Mendaftarkan custom provider panel `alhaiza` di `bootstrap/providers.php`.
+- **Perubahan Struktur File:**
+  - `app/Providers/Filament/AlhaizaPanelProvider.php`: Panel Provider independen dengan path `/alhaiza`, brand color Amber, dan middleware autentikasi bawaan.
+  - Aset publik Filament terpublikasi di `public/css/filament/` dan `public/js/filament/`.
 
-## Security Vulnerabilities
+---
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+### Fase 3: Desain Skema Database & Model Decoupled
 
-## License
+*Fokus: Memisahkan domain data ke tabel independen berelasi flat.*
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+Daripada menyimpan semua riwayat dalam satu entitas raksasa, arsitektur dibagi menjadi 4 entitas independen:
+
+1. **Modul Profile**
+   - Migrasi: `database/migrations/*_create_profiles_table.php` (`name`, `headline`, `bio`, `avatar`, `social_links`).
+   - Model: `app/Models/Profile.php` dengan `$casts = ['social_links' => 'array']`.
+2. **Modul Project**
+   - Migrasi: `database/migrations/*_create_projects_table.php` (`title`, `description`, `technologies`, `repository_url`, `demo_url`).
+   - Model: `app/Models/Project.php` dengan `$casts = ['technologies' => 'array']`.
+3. **Modul Experience**
+   - Migrasi: `database/migrations/*_create_experiences_table.php` (`company`, `role`, `start_date`, `end_date`, `description`).
+   - Model: `app/Models/Experience.php`.
+4. **Modul Skill**
+   - Migrasi: `database/migrations/*_create_skills_table.php` (`name`, `category`).
+   - Model: `app/Models/Skill.php`.
+
+---
+
+### Fase 4: Pembangunan CRUD Panel Admin (Filament Resources)
+
+*Fokus: Menyediakan antarmuka input data untuk tiap entitas database.*
+
+Setiap entitas mendapatkan class Resource dan sub-pages (`Create`, `Edit`, `List`):
+
+- **`app/Filament/Resources/ProfileResource.php`**
+  - Form: `TextInput` (name, headline), `Textarea` (bio), `FileUpload` (avatar), `KeyValue` (social_links).
+  - Table: `ImageColumn` (avatar), `TextColumn` (name, headline, updated_at).
+- **`app/Filament/Resources/ProjectResource.php`**
+  - Form: `TextInput`, `TagsInput` (technologies), `Textarea`.
+- **`app/Filament/Resources/ExperienceResource.php`**
+  - Form: `TextInput` (company, role), `DatePicker` (start_date, end_date), `Textarea`.
+- **`app/Filament/Resources/SkillResource.php`**
+  - Form: `TextInput` (name), `Select` (category).
+
+---
+
+### Fase 5: Agregasi Endpoint API Publik
+
+*Fokus: Menggabungkan data multi-tabel menjadi satu respons JSON efisien.*
+
+Alih-alih frontend melakukan 4 kali HTTP round-trip, backend menyediakan satu endpoint agregasi:
+
+- **Routing:** Diaktifkan di `routes/api.php` dan didaftarkan pada routing pipeline `bootstrap/app.php`.
+
+  ```http
+  GET /api/profile
+  ```
+
+- **Controller:** `app/Http/Controllers/Api/ProfileController.php`
+  - Mengambil profile utama: `Profile::first()`
+  - Mengekstrak skill dalam format flat array: `Skill::pluck('name')->toArray()`
+  - Mengambil koleksi project & experience: `Project::all()`, `Experience::all()`
+  - Memetakan avatar ke URL absolut: `asset('storage/' . $profile->avatar)`
+- **Format Response JSON:**
+
+  ```json
+  {
+    "success": true,
+    "message": "Profile data retrieved successfully",
+    "data": {
+      "name": "...",
+      "role": "...",
+      "bio": "...",
+      "avatar": "http://127.0.0.1:8000/storage/avatars/...",
+      "skills": ["PHP", "Laravel", "TypeScript"],
+      "projects": [...],
+      "experiences": [...]
+    }
+  }
+  ```
+
+---
+
+### Fase 6: Diagnostik & Perbaikan Storage Preview
+
+*Fokus: Menyelesaikan issue broken image pada Filament Admin Table.*
+
+- **Gejala Masalah:** Gambar avatar sukses di frontend via API, tetapi rusak (broken icon) di Filament Admin Table.
+- **Akar Masalah:**
+  1. `ImageColumn::make('avatar')` di `ProfileResource.php` secara default menggunakan disk `local` (`storage/app/private`), bukan disk `public`.
+  2. Nilai `APP_URL` di `.env` belum cocok dengan port server aktif (`http://127.0.0.1:8000`), sehingga URL resolver Filament gagal dimuat oleh browser.
+- **Diff Solusi:**
+  1. Pada `app/Filament/Resources/ProfileResource.php`:
+
+     ```php
+     ImageColumn::make('avatar')
+         ->disk('public')
+         ->circular(),
+     ```
+
+  2. Pada `.env`:
+
+     ```env
+     APP_URL=http://127.0.0.1:8000
+     ```
+
+---
+
+## 3. Checklist Menjalankan & Menguji Proyek
+
+### 1. Inisialisasi Baru (Clone ke Device Baru)
+
+```bash
+composer install
+cp .env.example .env
+php artisan key:generate
+# Sesuaikan konfigurasi database di .env
+php artisan migrate
+php artisan storage:link
+php artisan make:filament-user # Buat user admin
+```
+
+### 2. Runtime Server
+
+```bash
+php artisan serve
+```
+
+### 3. Pembersihan Cache (Setiap Ubah .env / View / Config)
+
+```bash
+php artisan config:clear
+php artisan route:clear
+php artisan view:clear
+php artisan cache:clear
+```
+
+### 4. URL Verifikasi
+
+- **Admin Panel:** `http://127.0.0.1:8000/alhaiza`
+- **Public API:** `http://127.0.0.1:8000/api/profile`
