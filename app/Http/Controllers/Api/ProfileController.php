@@ -40,7 +40,7 @@ class ProfileController extends Controller
             'message' => 'Profile data retrieved successfully',
             'data' => [
                 'name' => $profile->name,
-                'role' => $profile->role,
+                'role' => $profile->headline,
                 'bio' => $profile->bio,
                 'avatar' => $profile->avatar ? asset('storage/' . $profile->avatar) : null,
 

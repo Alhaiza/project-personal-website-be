@@ -48,6 +48,7 @@ class ProfileResource extends Resource
                     ->columnSpanFull(), // Membuat elemen memanjang penuh 1 baris grid
                 FileUpload::make('avatar')
                     ->image() // Membatasi hanya file gambar yang bisa di-upload
+                    ->disk('public') // Pastikan disk diatur ke public
                     ->directory('avatars'), // Folder penyimpanan di storage/app/public/avatars
                 KeyValue::make('social_links')
                     ->keyLabel('Platform') // Label untuk kolom key (misal: GitHub, LinkedIn)
@@ -65,10 +66,12 @@ class ProfileResource extends Resource
     {
         return $table
             ->columns([
-                ImageColumn::make('avatar'), // Menampilkan preview gambar avatar
-                TextColumn::make('name')->searchable(), // Kolom nama yang bisa dicari
+                ImageColumn::make('avatar')
+                    ->disk('public')
+                    ->circular(),
+                TextColumn::make('name')->searchable(),
                 TextColumn::make('headline')->searchable(),
-                TextColumn::make('updated_at')->dateTime() // Menampilkan timestamp pembaruan terakhir
+                TextColumn::make('updated_at')->dateTime()
             ])
             ->filters([
                 // Tempat menambahkan filter kustom (misal berdasarkan status/tanggal)
