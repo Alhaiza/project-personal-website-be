@@ -3,7 +3,10 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\Experience;
 use App\Models\Profile;
+use App\Models\Project;
+use App\Models\Skill;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -28,6 +31,10 @@ class ProfileController extends Controller
             ], 404);
         }
 
+        $skills = Skill::pluck('name')->toArray(); // Mengambil array nama skill saja
+        $projects = Project::all();
+        $experiences = Experience::all();
+
         return response()->json([
             'success' => true,
             'message' => 'Profile data retrieved successfully',
@@ -37,9 +44,9 @@ class ProfileController extends Controller
                 'bio' => $profile->bio,
                 'avatar' => $profile->avatar ? asset('storage/' . $profile->avatar) : null,
 
-                'skills' => [],
-                'projects' => [],
-                'experiences' => [],
+                'skills' => $skills,
+                'projects' => $projects,
+                'experiences' => $experiences,
             ]
         ], 200);
     }
